@@ -20,57 +20,46 @@ headlines
 
 headlines = [line.strip("\n") for line in headlines]
 headlines
---------------------------------------------------------------------prompt template
-# Create a dynamic template to analyze a single headline
+
 prompt_template = PromptTemplate.from_template(
     template="Analyze the following financial headline for sentiment: {headline}",
 )
 
-# Format the prompt template on the first headline of the dataset
 formatted_prompt = prompt_template.format(headline=headlines[0])
 
-# Print the formatted template
 formatted_prompt
------------------------------------------------
 
-#import chatprompt templete
+
 from langchain.prompts import ChatPromptTemplate
 
-# Define the system message.
 system_message = """You are performing sentiment analysis on news headlines regarding financial analysis. 
     This sentiment is to be used to advice financial analysts. 
     The format of the output has to be consistent. 
     The output is strictly limited to any of the following options: [positive, negative, neutral]."""
 
-# Initialize a new ChatPromptTemplate with a system message and human message.
 chat_template = ChatPromptTemplate.from_messages([
     ("system", system_message),
     ("human", "Analyze the following financial headline for sentiment: {headline}"),
 ])
 
-# Format the ChatPromptTemplate.
 formatted_chat_template = chat_template.format_messages(
     headline=headlines[0]
 )
 
-# Print the formatted template.
 formatted_chat_template
------------------------------------------------seeting llm chains
-------(1)
 from langchain.chains import LLMChain
 client = OpenAI()
 
 completion_chain = prompt_template | client
 
 completion_chain.invoke({"headline": headlines[0]})
-------(2)
+
 chat = ChatOpenAI()
 
 chat_chain = chat_template | chat
 
 chat_chain.invoke({"headline": headlines[0]}, {"system_message": system_message})
 
------------------------------------------output parser
 output_parser = CommaSeparatedListOutputParser()
 
 format_instructions = output_parser.get_format_instructions()
@@ -84,7 +73,6 @@ company_name_template = PromptTemplate(
 formatted_company_name_template = company_name_template.format(headlines=headlines)
 formatted_company_name_template
 
------------------------------------------------temperature
 model = OpenAI(temperature=0)
 
 _output = model.invoke(formatted_company_name_template)
@@ -95,18 +83,15 @@ print(f"Data type: {type(company_names)}\n")
 
 print(company_names)
 
----------------------------------------agents
 from langchain.agents.agent_toolkits import create_python_agent
 from langchain.tools.python.tool import PythonREPLTool
 
-# Instantiate a Python agent, with the PythonREPLTool.
 agent_executor = create_python_agent(
     llm=OpenAI(temperature=0, max_tokens=1000),
     tool=PythonREPLTool(),
     verbose=True
 )
 
-# Ask the agent for the solution of a mathematical equation.
 agent_executor.invoke("What is the square root of 250? Round the answer down to 4 decimals.")
 
 agent_executor.invoke(f"""For every of the following headlines, extract the company name and whether the financial sentiment is   positive, neutral or negative. 
@@ -118,113 +103,67 @@ agent_executor.invoke(f"""For every of the following headlines, extract the comp
    The headlines are the following:
    {headlines}
    """)
-------------------------------------------------
-# Make the necessary import.
+
 import pandas as pd
 
-# Load the CSV file into a dataframe.
 df = pd.read_csv("financial_analysis.csv")
 
-# Print the dataframe.
 df
------------------------------------------shot learning
-# Create a new prompt template with output parsing.
+
 sentiment_template = PromptTemplate(
     template="Get the financial sentiment of each of the following headlines. The output is strictly limited to any of the following options: ['Positive', 'Negative', 'Neutral']: {headlines}.\n{format_instructions}",
     input_variables=["headlines"],
     partial_variables={"format_instructions": format_instructions}
 )
 
-# Format the prompt template.
 formatted_sentiment_template = sentiment_template.format(headlines=headlines)
 
-# Invoke the model on the formatted prompt template.
 _output = model.invoke(formatted_sentiment_template)
 
-# Parse the output.
 sentiments = output_parser.parse(_output)
-
-# Print the list of sentiments.
 sentiments
 
-# Define a new function with two inputs,
 def visualize_sentiments(headlines, sentiments):
-    # Assert that both inputs are of equal length
     assert len(headlines) == len(sentiments)
 
-    # Visualize the sentiments and their respective headlines
     for i, _ in enumerate(headlines):
         print(f"{sentiments[i].upper()}: {headlines[i]}")
 
-# Call the function
 visualize_sentiments(headlines, sentiments)
 
 
-# Store the few shot examples in a variable.
+#few shot examples 
 sentiment_examples = """
     If a company is doing financially better than before, the sentiment is positive. For example, when profits or revenue have increased since the last quarter or year, exceeding expectations, a contract is awarded or an acquisition is announced.
     If the company's profits are decreasing, losses are mounting up or overall performance is not meeting expectations, the sentiment is negative.
     If nothing positive or negative is mentioned from a financial perspective, the sentiment is neutral.
 """
 
-# Instantiate a new prompt template with the format instructions.
 sentiment_template = PromptTemplate(
     template="Get the financial sentiment of each of the following headlines. {few_shot_examples} The output is strictly limited to any of the following options: ['Positive', 'Negative', 'Neutral']: {headlines}.\n{format_instructions}",
     input_variables=["headlines", "few_shot_examples"],
     partial_variables={"format_instructions": format_instructions}
 )
 
-# Format the template.
 formatted_sentiment_template = sentiment_template.format(headlines=headlines, few_shot_examples=sentiment_examples)
 
-# Invoke the model on the formatted template.
 _output = model.invoke(formatted_sentiment_template)
 
-# Parse the model output.
 sentiments = output_parser.parse(_output)
 
-# Visualize the result.
 visualize_sentiments(headlines, sentiments)
 
-----------------------------combining tools and output parsing
-# Invoke the agent to create a file with the headlines, company names and sentiments.
+
 agent_executor.invoke(f"""Create a dataframe with two columns: company_name, sentiment and headline.
 To fill the dataframe, use the following lists respectively: {str(company_names)}, {str(sentiments)} and {str(headlines)}. 
 The dataframe can then be saved in the current working directory under the name financial_analysis_with_parsing.csv.
 If a csv file already exists with the same name, it should be overwritten.
 """)
 
-# Load the CSV file into a dataframe.
 df = pd.read_csv("financial_analysis_with_parsing.csv")
-
-# Print the dataframe.
 df
 
 
-# Load the lines of the text file.
-with open('reddit_comments.txt', 'r') as data:
-    comments = data.readlines()
-
-# Optionally print the comments.
-comments
-
-# Pick a comment.
-comment = comments[0]
-
-# Define an OpenAI model. Assign to client.
-client = openai.OpenAI()
-
-# Send the comment to the Moderation API.
-moderation_output = client.moderations.create(input=comment)
-
-# Optionally print the comment.
-print(comment)
-
-# Print the output.
-moderation_output
-
-# Run this code to see the scores
-pd.DataFrame(moderation_output.results[0].dict())[["categories", "category_scores"]]
 
 
 
